@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Email Validator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 640px;
+      margin: 40px auto;
+      padding: 0 16px;
+      background: #f7f7f9;
+      color: #222;
+    }
+    h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    p {
+      margin-top: 0;
+      color: #555;
+    }
+    label {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    input[type="email"] {
+      width: 100%;
+      padding: 8px 10px;
+      font-size: 16px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    button {
+      padding: 8px 16px;
+      font-size: 15px;
+      border-radius: 4px;
+      border: 1px solid #1976d2;
+      background: #1976d2;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+    #result {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 4px;
+      background: #fff;
+      border: 1px solid #ddd;
+      white-space: pre-wrap;
+      font-family: Consolas, Menlo, monospace;
+      font-size: 13px;
+      min-height: 40px;
+    }
+    .status-ok { border-color: #2e7d32; }
+    .status-error { border-color: #c62828; }
+    .status-unknown { border-color: #f9a825; }
+  </style>
+</head>
+<body>
+  <h1>Email Validator</h1>
+  <p>Enter an email and this page will call the validator API and show whether it appears deliverable.</p>
+
+  <label for="email">Email address</label>
+  <input id="email" type="email" placeholder="user@example.com">
+  <button id="checkBtn" type="button">Check</button>
+
+  <div id="result"></div>
+
+  <script>
+    // TODO: replace with your actual API base URL,
+    // for example: "https://api.yourdomain.com"
+    const API_BASE = "http://localhost:8080";
+
+    const emailInput = document.getElementById("email");
+    const resultDiv = document.getElementById("result");
+    const button = document.getElementById("checkBtn");
+
+    async function validateEmail() {
+      const email = emailInput.value.trim();
+      if (!email) {
+        showResult("Please enter an email address.", "error");
+        return;
+      }
+
+      button.disabled = true;
+      showResult("Checking...", "unknown");
+
+      try {
+        const url =
+          API_BASE +
+          "/validate?email=" +
+          encodeURIComponent(email) +
+          "&timeout=7&max_mx=3&ports=25";
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.error) {
+          showResult("Error: " + data.error, "error");
+          return;
+        }
+
+        const status = data.status;
+        const reason = data.reason || "";
+        const ok = data.ok;
+
+        let lines = [];
+        lines.push("Email: " + data.email);
+        lines.push("Status: " + status + (reason ? " (" + reason + ")" : ""));
+        lines.push("Deliverable flag: " + data.is_deliverable);
+        lines.push("Domain has MX: " + data.domain_has_mx);
+        lines.push("SMTP connectable: " + data.smtp_connectable);
+
+        let statusClass = "unknown";
+        if (ok && status === "deliverable") statusClass = "ok";
+        else if (!ok && (status === "undeliverable" || status === "invalid_syntax" || status === "invalid_domain")) statusClass = "error";
+
+        showResult(lines.join("\n"), statusClass);
+      } catch (e) {
+        showResult("Request failed: " + e, "error");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function showResult(text, kind) {
+      resultDiv.textContent = text;
+      resultDiv.classList.remove("status-ok", "status-error", "status-unknown");
+      if (kind === "ok") resultDiv.classList.add("status-ok");
+      else if (kind === "error") resultDiv.classList.add("status-error");
+      else resultDiv.classList.add("status-unknown");
+    }
+
+    button.addEventListener("click", validateEmail);
+    emailInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        validateEmail();
+      }
+    });
+  </script>
+</body>
+</html>
+
