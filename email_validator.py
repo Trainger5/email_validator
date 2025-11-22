@@ -33,6 +33,8 @@ class EmailValidationResult:
     is_disposable: Optional[bool]
     status: str  # deliverable | undeliverable | unknown | invalid_syntax | invalid_domain
     reason: Optional[str]
+    bounce_likely: Optional[bool]
+    bounce_reason: Optional[str]
     mx_hosts: List[str]
     logs: List[str]
 
@@ -130,7 +132,9 @@ def nslookup_mx(domain: str, timeout: int, logs: List[str]) -> List[Tuple[int, s
         out = proc.stdout or ""
         mx_records: List[Tuple[int, str]] = []
         pref_host = re.compile(r"preference\s*=\s*(\d+)\s*,\s*mail exchanger\s*=\s*(\S+)")
-        host_only = re.compile(r"mail exchanger\s*=\s*(\S+)")
+        # Some nslookup variants print: "mail exchanger = 5 gmail-smtp-in.l.google.com."
+        # In that case the numeric priority appears before the hostname; capture the hostname.
+        host_only = re.compile(r"mail exchanger\s*=\s*\d+\s+(\S+)")
         for line in out.splitlines():
             line = line.strip()
             m = pref_host.search(line)
@@ -266,6 +270,8 @@ def check_email(
             is_disposable=None,
             status="invalid_syntax",
             reason="missing_at",
+            bounce_likely=True,
+            bounce_reason="missing_at",
             mx_hosts=[],
             logs=logs,
         )
@@ -284,6 +290,8 @@ def check_email(
             is_disposable=None,
             status="invalid_syntax",
             reason=why,
+            bounce_likely=True,
+            bounce_reason=why,
             mx_hosts=[],
             logs=logs,
         )
@@ -299,18 +307,20 @@ def check_email(
             return EmailValidationResult(
                 email=email,
                 normalized_email=normalized,
-                domain=domain,
-                is_valid_syntax=True,
-                domain_has_mx=False,
-                smtp_connectable=False,
-                is_deliverable=False,
-                is_catch_all=None,
-                is_disposable=None,
-                status="invalid_domain",
-                reason="no_mx_no_a",
-                mx_hosts=[],
-                logs=logs,
-            )
+            domain=domain,
+            is_valid_syntax=True,
+            domain_has_mx=False,
+            smtp_connectable=False,
+            is_deliverable=False,
+            is_catch_all=None,
+            is_disposable=None,
+            status="invalid_domain",
+            reason="no_mx_no_a",
+            bounce_likely=True,
+            bounce_reason="no_mx_no_a",
+            mx_hosts=[],
+            logs=logs,
+        )
         # Use domain as host when only A exists
         mx_hosts = [domain]
 
@@ -378,6 +388,18 @@ def check_email(
         status = "unknown"
         reason = f"rcpt_{rcpt_code}" if rcpt_code else "temp_fail"
 
+    bounce_likely: Optional[bool]
+    bounce_reason: Optional[str]
+    if status in ("invalid_syntax", "invalid_domain", "undeliverable"):
+        bounce_likely = True
+        bounce_reason = reason or status
+    elif status == "deliverable":
+        bounce_likely = False
+        bounce_reason = None
+    else:
+        bounce_likely = None
+        bounce_reason = reason
+
     return EmailValidationResult(
         email=email,
         normalized_email=normalized,
@@ -390,6 +412,8 @@ def check_email(
         is_disposable=is_disposable,
         status=status,
         reason=reason,
+        bounce_likely=bounce_likely,
+        bounce_reason=bounce_reason,
         mx_hosts=mx_hosts,
         logs=logs,
     )
@@ -464,6 +488,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print(f"Catch-all:       {'yes' if res.is_catch_all else 'no'}")
             if res.is_disposable is not None:
                 print(f"Disposable:      {'yes' if res.is_disposable else 'no'}")
+            bounce_line = "unknown"
+            if res.bounce_likely is True:
+                bounce_line = "yes"
+            elif res.bounce_likely is False:
+                bounce_line = "no"
+            if res.bounce_reason:
+                bounce_line += f" ({res.bounce_reason})"
+            print(f"Bounce likely:   {bounce_line}")
             print(f"Status:          {res.status}{' (' + res.reason + ')' if res.reason else ''}")
             if res.mx_hosts:
                 print(f"MX tried:        {', '.join(res.mx_hosts)}")
@@ -510,6 +542,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "domain",
                 "status",
                 "reason",
+                "bounce_likely",
+                "bounce_reason",
                 "is_deliverable",
                 "is_catch_all",
                 "is_disposable",
@@ -553,12 +587,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                     row = [
                         res.email,
                         res.normalized_email or "",
-                        res.domain or "",
-                        res.status,
-                        res.reason or "",
-                        json.dumps(res.is_deliverable) if res.is_deliverable is not None else "",
-                        json.dumps(res.is_catch_all) if res.is_catch_all is not None else "",
-                        json.dumps(res.is_disposable) if res.is_disposable is not None else "",
+                    res.domain or "",
+                    res.status,
+                    res.reason or "",
+                    json.dumps(res.bounce_likely) if res.bounce_likely is not None else "",
+                    res.bounce_reason or "",
+                    json.dumps(res.is_deliverable) if res.is_deliverable is not None else "",
+                    json.dumps(res.is_catch_all) if res.is_catch_all is not None else "",
+                    json.dumps(res.is_disposable) if res.is_disposable is not None else "",
                         "yes" if res.domain_has_mx else "no",
                         "yes" if res.smtp_connectable else "no",
                         ";".join(res.mx_hosts or []),

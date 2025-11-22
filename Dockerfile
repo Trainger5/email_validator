@@ -10,7 +10,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY email_validator.py server.py README.md ./
+COPY email_validator.py server.py storage.py xlsx_utils.py README.md ./
 
 EXPOSE 8080
 
@@ -26,4 +26,3 @@ except Exception:
 PY
 
 CMD ["python", "server.py", "--port", "8080"]
-

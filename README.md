@@ -1,148 +1,84 @@
 Email Validator (DNS + SMTP)
+============================
 
 Overview
+--------
+- Validates deliverability with DNS MX lookup and SMTP RCPT handshake (no email is sent).
+- Detects catch-all domains, disposable domains, and exposes a bounce-likelihood flag.
+- Accepts single checks, pasted bulk lists, or CSV/XLSX uploads (template provided).
+- Persists every validation in SQLite with an admin panel + CSV export endpoint.
+- Lightweight: Python stdlib only; ships with a React/Vite frontend.
 
-- Validates email addresses beyond syntax: DNS MX lookup and SMTP RCPT handshake.
-- Detects catch‑all domains and flags disposable domains (small built‑in list).
-- CLI outputs human‑readable summary or JSON for integration.
-
-Why this approach
-
-- Syntax checks alone are not enough. This tool attempts a live SMTP check
-  without sending a message (no DATA step), which is the closest you can get
-  to verifying deliverability without actually sending mail.
-  Note: Many providers use anti‑abuse tactics (greylisting, tarpits,
-  or accept‑all). Results are best‑effort and not guaranteed.
-
-Quick start
-
-1) Ensure Python 3.9+ is installed.
-2) Run:
-
+Quick start (CLI)
+-----------------
+1) Python 3.9+ installed.
+2) Run a single check:
    - Human output: `python email_validator.py check someone@example.com`
-   - JSON output:  `python email_validator.py check someone@example.com --json`
+   - JSON output: `python email_validator.py check someone@example.com --json`
    - Verbose SMTP: `python email_validator.py check someone@example.com --json --verbose`
 
 HTTP API
-
+--------
 - Start server: `python server.py --port 8080`
-- Health: `GET http://localhost:8080/health`
-- Validate (GET):
-  `GET http://localhost:8080/validate?email=user@example.com&timeout=7&max_mx=3&ports=25,587&from=verify@yourdomain.com&helo=yourdomain.com`
-- Validate (POST JSON):
-  `POST http://localhost:8080/validate` with body:
-  `{ "email": "user@example.com", "timeout": 7, "max_mx": 3, "ports": [25], "from": "verify@yourdomain.com", "helo": "yourdomain.com" }`
+- Health: `GET /health`
+- Validate (GET): `GET /validate?email=user@example.com&timeout=7&max_mx=3&ports=25,587&from=verify@yourdomain.com&helo=yourdomain.com`
+- Validate (POST): `POST /validate` with JSON  
+  `{"email":"user@example.com","timeout":7,"max_mx":3,"ports":[25],"from":"verify@yourdomain.com","helo":"yourdomain.com"}`
+- Responses include: status (`deliverable|undeliverable|unknown|invalid_*`), `reason`, `bounce_likely`, `bounce_reason`, SMTP/DNS flags, `mx_hosts`, and `ok` (high-level pass flag).
+- HTTP codes: 200 deliverable, 202 unknown/temporary, 400 invalid input, 404 undeliverable, 500 internal error.
 
-Batch endpoint
+Uploads and templates
+---------------------
+- Download template headers:
+  - `GET /template/excel` (XLSX)
+  - `GET /template/csv` (CSV)
+- Headers: `Email, Name, From Name, CC, BCC, Reply To, Subject, TrackingID, Opened, Last Opened, Clicked, Last Clicked, Unsubscribed, Status`.
+- Validate upload: `POST /validate/upload` (multipart form) with `file=<csv/xlsx>` and optional `concurrency`, `ports`, `from`, `helo`, `timeout`, `max_mx`, `verbose`.
+- JSON bulk: `POST /validate/bulk`
+  - `{"emails":["a@example.com","b@example.com"],"concurrency":10}` (optional `stream:true` for NDJSON)
+  - or `{"records":[{...template fields...}], "concurrency":10}` (returns JSON array + summary).
 
-- POST NDJSON streaming:
-  - `curl -N -X POST -H "Content-Type: application/json" -d '{"emails":["a@example.com","b@example.com"],"stream":true}' http://localhost:8080/validate/bulk`
-  - PowerShell: `Invoke-WebRequest -Method POST -Uri http://localhost:8080/validate/bulk -ContentType application/json -Body '{"emails":["a@example.com","b@example.com"],"stream":true}' | Select-Object -Expand Content`
-  - Returns one JSON object per line, no Content-Length. Read until the connection closes.
-- POST JSON array (non-streaming):
-  - `curl -X POST -H "Content-Type: application/json" -d '{"emails":["a@example.com","b@example.com"],"concurrency":10}' http://localhost:8080/validate/bulk`
-  - Returns `{ results: [...], summary: { deliverable, undeliverable, unknown, invalid }, total }`.
-  
-Common options (both modes): `from`, `helo`, `timeout`, `max_mx`, `ports` (e.g., `"25,587"` or `[25,587]`), `verbose`, `concurrency`.
+Admin panel & storage
+---------------------
+- SQLite database: `data/validations.db` by default (configure with `--db-path`).
+- Auth: default admin `admin / admin123` is created if none exists.
+- Protect admin endpoints with login (Bearer token) or optional `--admin-token <token>` fallback (`Authorization: Bearer <token>` or `?token=`).
+- Endpoints:
+  - `GET /admin/validations?limit=100&offset=0` -> JSON list + total.
+  - `GET /admin/export` -> CSV of all stored validations.
+  - `GET /admin/stats` -> totals + recent rows.
+- The React frontend includes an admin section consuming these endpoints.
 
-Responses are JSON and include the same fields as the CLI’s `--json` output, with an extra `ok` boolean. HTTP codes:
+Auth endpoints
+--------------
+- `POST /auth/login` with `{"username":"...","password":"..."}` returns `{ token, username, role }`.
+- `GET /auth/me` with `Authorization: Bearer <token>` returns current user info.
 
-- 200: deliverable
-- 202: unknown/temporary (e.g., greylisting, timeouts)
-- 400: invalid input (syntax/domain/params)
-- 404: undeliverable
-- 500: internal error
-
-Exit codes
-
-- 0: Deliverable (or Accepts‑All when treated as deliverable)
-- 1: Undeliverable or invalid
-- 2: Unknown/temporary (e.g., greylisting, timeouts)
-
-What the tool checks
-
-- Syntax validation with common RFC‑compatible rules
-- Domain normalization with IDNA (punycode) support
-- DNS MX lookup via `nslookup` (fallback to A record)
-- SMTP handshake: EHLO, optional STARTTLS, MAIL FROM, RCPT TO
-- Catch‑all detection by probing a random address at the same domain
-- Disposable domain detection against a small built‑in list
-
-Configuration flags
-
-- `--from`        MAIL FROM used in SMTP (default: verify@example.com)
-- `--helo`        HELO/EHLO hostname (default: example.com)
-- `--timeout`     Seconds for DNS/SMTP operations (default: 7)
-- `--max-mx`      Max MX hosts to try (default: 3)
-- `--ports`       SMTP ports to try (comma: e.g., 25,587) (default: 25)
-- `--json`        Output JSON
-- `--verbose`     SMTP debug logs
-
-Caveats and notes
-
-- Some servers always accept RCPT (catch‑all). The tool flags this; treat as
-  "unknown" unless your workflow considers accept‑all as sufficient.
-- Some providers temporarily defer with 4xx codes (greylisting). These are
-  reported as unknown/temporary.
-- Corporate firewalls or network egress rules may block port 25/587. If so,
-  SMTP checks will time out and be reported as unknown.
-
-Examples
-
-- Basic check:
-  `python email_validator.py check user@gmail.com`
-
-- JSON for automation:
-  `python email_validator.py check user@company.com --json > result.json`
-
-- Tuning timeouts and ports:
-  `python email_validator.py check user@domain.com --timeout 10 --ports 25,587`
-
-Bulk validation (CLI)
-
-- One email per line (empty lines and lines starting with `#` ignored)
-- NDJSON (streaming):
-  `python email_validator.py bulk -i emails.txt --out ndjson --concurrency 10`
-- CSV:
-  `python email_validator.py bulk -i emails.txt --out csv --concurrency 10 > results.csv`
-- JSON array (collects then prints):
-  `python email_validator.py bulk -i emails.txt --out json --concurrency 10 > results.json`
-- From stdin:
-  `type emails.txt | python email_validator.py bulk --out ndjson`
-
-Notes:
-
-- Summary is printed to stderr and won’t pollute NDJSON/CSV.
-- Increase `--timeout` for slow MX hosts; throttle with lower `--concurrency` to reduce pressure on providers.
-- For best accuracy, set `--from` and `--helo` to a domain you control.
+CLI bulk (file or stdin)
+------------------------
+- One email per line (empty lines / `#` ignored).
+- NDJSON streaming: `python email_validator.py bulk -i emails.txt --out ndjson --concurrency 10`
+- CSV: `python email_validator.py bulk -i emails.txt --out csv --concurrency 10 > results.csv`
+- JSON array: `python email_validator.py bulk -i emails.txt --out json --concurrency 10 > results.json`
+- From stdin: `type emails.txt | python email_validator.py bulk --out ndjson`
 
 Docker
-
+------
 - Build: `docker build -t email-validator .`
 - Run: `docker run --rm -p 8080:8080 --name email-validator email-validator`
-- Compose: `docker compose up --build` (uses `docker-compose.yml`)
+- Compose: `docker compose up --build`
 
-Test the server
+React frontend (Vite)
+---------------------
+- Located in `frontend/` (TypeScript + Vite + React).
+- Install deps: `cd frontend && npm install`
+- Dev server: `npm run dev` (defaults to http://localhost:5173)
+- Build: `npm run build` (outputs to `frontend/dist`)
+- Configure API base: set `VITE_API_BASE=http://localhost:8080` in `frontend/.env` (sample in `frontend/.env.example`; leave empty when served from the same origin as the Python API).
+- Features: single check, bulk paste, CSV/XLSX upload with template links, admin dashboard with token + CSV export, bounce-likelihood surfacing.
 
-- Health:
-  - curl: `curl http://localhost:8080/health`
-  - PowerShell: `Invoke-WebRequest http://localhost:8080/health | Select-Object -Expand Content`
-
-- Validate via GET:
-  - curl: `curl "http://localhost:8080/validate?email=user@example.com&timeout=7&max_mx=3&ports=25,587&from=verify@yourdomain.com&helo=yourdomain.com"`
-  - PowerShell: `Invoke-WebRequest "http://localhost:8080/validate?email=user@example.com&timeout=7&max_mx=3&ports=25,587&from=verify@yourdomain.com&helo=yourdomain.com" | Select-Object -Expand Content`
-
-- Validate via POST JSON:
-  - curl: `curl -X POST -H "Content-Type: application/json" -d '{"email":"user@example.com","timeout":7,"ports":[25]}' http://localhost:8080/validate`
-  - PowerShell: `Invoke-RestMethod -Method POST -Uri http://localhost:8080/validate -ContentType application/json -Body '{"email":"user@example.com","timeout":7,"ports":[25]}'`
-
-CLI inside container
-
-- Run one-off CLI: `docker run --rm email-validator python email_validator.py check someone@example.com --json`
- - Bulk from a mounted file:
-   `docker run --rm -v %CD%:/data email-validator python email_validator.py bulk -i /data/emails.txt --out csv --concurrency 10 > results.csv`
-
-Notes for testing
-
-- Many networks block outbound SMTP (25/587). If blocked, results will show `unknown (smtp_unreachable)` even though DNS works.
-- The container installs `bind9-dnsutils` for `nslookup`. If `nslookup` still fails, the tool falls back to A/AAAA and attempts SMTP against the domain.
+Notes & caveats
+---------------
+- Outbound SMTP (25/587) may be blocked by your network; results will show `unknown (smtp_unreachable)` if unreachable.
+- Some hosts accept-all or greylist; `bounce_likely` and `reason` help surface risk, but they remain best-effort.
+- Set `--from` and `--helo` to a domain you control for best accuracy.

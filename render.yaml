@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: email-validator-api
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python server.py --host 0.0.0.0 --port $PORT --db-path /var/data/validations.db"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: PORT
+        generateValue: true
+    disk:
+      name: email-validator-data
+      mountPath: /var/data
+      sizeGB: 1
