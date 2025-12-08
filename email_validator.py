@@ -119,54 +119,91 @@ def is_valid_syntax(email: str) -> Tuple[bool, Optional[str]]:
 
 
 def nslookup_mx(domain: str, timeout: int, logs: List[str]) -> List[Tuple[int, str]]:
-    """Resolve MX via nslookup. Returns list of (preference, host)."""
+    """Resolve MX via dnspython. Returns list of (preference, host)."""
     try:
-        # Windows-friendly: -type=mx
-        proc = subprocess.run(
-            ["nslookup", "-type=mx", domain],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-        out = proc.stdout or ""
+        import dns.resolver
+        
+        # Configure resolver with timeout
+        resolver = dns.resolver.Resolver()
+        resolver.timeout = timeout
+        resolver.lifetime = timeout
+        
+        # Query MX records
+        answers = resolver.resolve(domain, 'MX')
         mx_records: List[Tuple[int, str]] = []
-        pref_host = re.compile(r"preference\s*=\s*(\d+)\s*,\s*mail exchanger\s*=\s*(\S+)")
-        # Some nslookup variants print: "mail exchanger = 5 gmail-smtp-in.l.google.com."
-        # In that case the numeric priority appears before the hostname; capture the hostname.
-        host_only = re.compile(r"mail exchanger\s*=\s*\d+\s+(\S+)")
-        for line in out.splitlines():
-            line = line.strip()
-            m = pref_host.search(line)
-            if m:
-                pref = int(m.group(1))
-                host = m.group(2).rstrip('.')
-                mx_records.append((pref, host))
-                continue
-            m2 = host_only.search(line)
-            if m2:
-                host = m2.group(1).rstrip('.')
-                # Unknown preference; default to 10
-                mx_records.append((10, host))
-        # Deduplicate by host keeping lowest pref
-        best: dict[str, int] = {}
-        for pref, host in mx_records:
-            if host not in best or pref < best[host]:
-                best[host] = pref
-        final = sorted([(p, h) for h, p in best.items()], key=lambda x: x[0])
-        if final:
-            _log(logs, f"MX via nslookup: {[h for _, h in final]}")
-        else:
-            _log(logs, "No MX records found via nslookup")
-        return final
-    except subprocess.TimeoutExpired:
-        _log(logs, "nslookup MX timed out")
+        
+        for rdata in answers:
+            preference = rdata.preference
+            host = str(rdata.exchange).rstrip('.')
+            mx_records.append((preference, host))
+        
+        # Sort by preference (lower is higher priority)
+        mx_records.sort(key=lambda x: x[0])
+        
+        hosts = [h for _, h in mx_records]
+        _log(logs, f"MX records found: {hosts}")
+        return mx_records
+        
+    except dns.resolver.NXDOMAIN:
+        _log(logs, f"Domain {domain} does not exist")
         return []
-    except FileNotFoundError:
-        _log(logs, "nslookup not found")
+    except dns.resolver.NoAnswer:
+        _log(logs, f"No MX records for {domain}")
         return []
+    except dns.resolver.Timeout:
+        _log(logs, f"DNS timeout for {domain}")
+        return []
+    except dns.exception.DNSException as e:
+        _log(logs, f"DNS error for {domain}: {e}")
+        return []
+    except ImportError:
+        _log(logs, "dnspython library not installed, falling back to nslookup")
+        # Fallback to original nslookup method
+        try:
+            proc = subprocess.run(
+                ["nslookup", "-type=mx", domain],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
+            out = proc.stdout or ""
+            mx_records: List[Tuple[int, str]] = []
+            pref_host = re.compile(r"preference\s*=\s*(\d+)\s*,\s*mail exchanger\s*=\s*(\S+)")
+            host_only = re.compile(r"mail exchanger\s*=\s*\d+\s+(\S+)")
+            for line in out.splitlines():
+                line = line.strip()
+                m = pref_host.search(line)
+                if m:
+                    pref = int(m.group(1))
+                    host = m.group(2).rstrip('.')
+                    mx_records.append((pref, host))
+                    continue
+                m2 = host_only.search(line)
+                if m2:
+                    host = m2.group(1).rstrip('.')
+                    mx_records.append((10, host))
+            best: dict[str, int] = {}
+            for pref, host in mx_records:
+                if host not in best or pref < best[host]:
+                    best[host] = pref
+            final = sorted([(p, h) for h, p in best.items()], key=lambda x: x[0])
+            if final:
+                _log(logs, f"MX via nslookup: {[h for _, h in final]}")
+            else:
+                _log(logs, "No MX records found via nslookup")
+            return final
+        except subprocess.TimeoutExpired:
+            _log(logs, "nslookup MX timed out")
+            return []
+        except FileNotFoundError:
+            _log(logs, "nslookup not found and dnspython not available")
+            return []
+        except Exception as e:
+            _log(logs, f"nslookup error: {e}")
+            return []
     except Exception as e:
-        _log(logs, f"nslookup error: {e}")
+        _log(logs, f"Unexpected error resolving MX: {e}")
         return []
 
 
