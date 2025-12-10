@@ -91,7 +91,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ authUser }) => {
     return (
         <div className="dashboard-container">
             {/* Header Section */}
-            <div className="dashboard-header d-flex justify-between align-center" style={{ marginBottom: '2rem' }}>
+            <div className="dashboard-header d-flex justify-between align-center" style={{ margin: '2rem 0' }}>
                 <div>
                     <h1>Admin Dashboard</h1>
                     <p className="muted">System status and verification overview</p>
