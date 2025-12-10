@@ -30,7 +30,7 @@ export const AdminTab: React.FC<AdminTabProps> = ({
     if (!authUser) {
         return (
             <article className="card tall">
-                <div className="card-head">
+                <div className="card-head d-flex justify-between align-center">
                     <div>
                         <p className="eyebrow">Admin Panel</p>
                         <h2>Authentication Required</h2>
@@ -53,7 +53,7 @@ export const AdminTab: React.FC<AdminTabProps> = ({
     if (authUser.role !== 'admin') {
         return (
             <article className="card tall">
-                <div className="card-head">
+                <div className="card-head d-flex justify-between align-center">
                     <div>
                         <p className="eyebrow">Access Denied</p>
                         <h2>Insufficient Permissions</h2>
@@ -75,7 +75,7 @@ export const AdminTab: React.FC<AdminTabProps> = ({
     // Admin user - show dashboard
     return (
         <article className="card tall">
-            <div className="card-head">
+            <div className="card-head d-flex justify-between align-center">
                 <div>
                     <p className="eyebrow">Admin Dashboard</p>
                     <h2>Validation Logs & Export</h2>
@@ -83,12 +83,12 @@ export const AdminTab: React.FC<AdminTabProps> = ({
                 <span className="badge">Authorized</span>
             </div>
 
-            <div className="admin-controls">
+            <div className="admin-controls d-flex justify-end">
                 <button className="btn ghost" onClick={onRefresh} disabled={adminLoading}>
-                    {adminLoading ? 'Loading...' : 'Refresh Data'}
+                    {adminLoading ? 'Loading...' : <i className="fas fa-sync-alt"></i>}
                 </button>
                 <a className="btn primary" href={exportHref} target="_blank" rel="noreferrer">
-                    Export CSV
+                    <i className="fa-solid fa-download"></i>
                 </a>
             </div>
 
@@ -98,39 +98,47 @@ export const AdminTab: React.FC<AdminTabProps> = ({
                 </div>
             )}
 
+
             {adminStats && (
-                <div className="stat-cards">
-                    <div className="stat-card">
-                        <p className="muted tiny">Total</p>
+                <div className="summary-grid" style={{ marginTop: '2rem' }}>
+                    <div className="summary-card">
+                        <p className="tiny muted">Total</p>
                         <h3>{adminStats.total}</h3>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)' }}>Validated</span>
                     </div>
-                    <div className="stat-card">
-                        <p className="muted tiny">Deliverable</p>
-                        <h3 className="status-ok">{adminStats.deliverable}</h3>
+                    <div className="summary-card success">
+                        <p className="tiny muted">Deliverable</p>
+                        <h3>{adminStats.deliverable}</h3>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--success)' }}>
+                            {adminStats.total > 0 ? Math.round((adminStats.deliverable / adminStats.total) * 100) : 0}%
+                        </span>
                     </div>
-                    <div className="stat-card">
-                        <p className="muted tiny">Undeliverable</p>
-                        <h3 className="status-error">{adminStats.undeliverable}</h3>
+                    <div className="summary-card danger">
+                        <p className="tiny muted">Invalid</p>
+                        <h3>{adminStats.invalid + adminStats.undeliverable}</h3>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--error)' }}>
+                            Combined
+                        </span>
                     </div>
-                    <div className="stat-card">
-                        <p className="muted tiny">Invalid</p>
-                        <h3 className="status-error">{adminStats.invalid}</h3>
-                    </div>
-                    <div className="stat-card">
-                        <p className="muted tiny">Bounce Risk</p>
-                        <h3 className="status-unknown">{adminStats.bounce_likely}</h3>
+                    <div className="summary-card warning">
+                        <p className="tiny muted">Bounce Risk</p>
+                        <h3>{adminStats.bounce_likely}</h3>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--warning)' }}>
+                            At Risk
+                        </span>
                     </div>
                 </div>
             )}
 
+
             {adminStats && adminStats.recent && adminStats.recent.length > 0 && (
-                <div className="recent-wrap">
+                <div className="recent-wrap glass-panel" style={{ padding: '1.5rem', marginTop: '2rem' }}>
                     <p className="eyebrow">Recent Activity</p>
-                    <ul className="recent-list">
+                    <ul className="recent-list" style={{ listStyle: 'none' }}>
                         {adminStats.recent.map((row, idx) => (
-                            <li key={idx}>
-                                <span>{row.email}</span>
-                                <span>
+                            <li key={idx} style={{ padding: '0.75rem 0', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ fontWeight: 500 }}>{row.email}</span>
+                                <span className="muted">
                                     {row.validation_status}
                                     {row.validation_reason ? ` (${row.validation_reason})` : ''}
                                 </span>
@@ -141,8 +149,8 @@ export const AdminTab: React.FC<AdminTabProps> = ({
                 </div>
             )}
 
-            <div className="table-wrap">
-                <table>
+            <div className="table-wrap" style={{ marginTop: '2rem' }}>
+                <table className="table-glass">
                     <thead>
                         <tr>
                             <th>Email</th>

@@ -9,11 +9,25 @@ type FetchOptions = {
 
 const jsonHeaders = { "Content-Type": "application/json" };
 
+function withAuthHeader(headers: Record<string, string> = {}) {
+  if (!headers.Authorization) {
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return headers;
+}
+
 async function apiRequest<T>(opts: FetchOptions): Promise<T> {
   const url = `${API_BASE}${opts.path.startsWith("/") ? "" : "/"}${opts.path}`;
   const res = await fetch(url, {
     method: opts.method ?? "GET",
-    headers: { ...opts.headers },
+    headers: withAuthHeader({ ...(opts.headers || {}) }),
     body: opts.body,
   });
   const data = await res.json();

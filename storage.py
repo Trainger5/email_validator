@@ -120,7 +120,7 @@ class ValidationStore:
                     normalized_email, domain, is_valid_syntax, domain_has_mx, smtp_connectable,
                     is_deliverable, is_catch_all, is_disposable, validation_status,
                     validation_reason, bounce_likely, bounce_reason, mx_hosts, source
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     meta.get("email") or getattr(result, "email", None),

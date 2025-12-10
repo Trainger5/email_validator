@@ -265,6 +265,9 @@ class EmailValidatorHandler(BaseHTTPRequestHandler):
         if parsed.path == "/admin/export":
             self._handle_admin_export(parsed)
             return
+        if parsed.path == "/auth/me":
+            self._handle_me()
+            return
         self._respond_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
 
     def do_POST(self):

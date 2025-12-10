@@ -11,7 +11,7 @@ import { AdminDashboard } from './pages/AdminDashboard';
 
 interface AppRouterProps {
     authUser: { username: string; role: string } | null;
-    onLogin: (user: { username: string; role: string }) => void;
+    onLogin: (user: { username: string; role: string; token?: string }) => void;
     onLogout: () => void;
 }
 
@@ -23,7 +23,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({ authUser, onLogin, onLogou
 
                 <Routes>
                     {/* Public Routes */}
-                    <Route path="/" element={<LandingPage />} />
+                    <Route path="/" element={<LandingPage authUser={authUser} />} />
                     <Route path="/login" element={<LoginPage onLogin={onLogin} />} />
                     <Route path="/signup" element={<SignupPage />} />
 

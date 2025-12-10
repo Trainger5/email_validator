@@ -6,7 +6,6 @@ import {
     uploadFile,
     fetchAdminValidations,
     fetchAdminStats,
-    templateUrl,
     ValidationResult,
     BulkResponse,
     AdminStats,
@@ -183,22 +182,28 @@ export const ValidationPage: React.FC<ValidationPageProps> = ({ authUser }) => {
     }
 
     return (
-        <div className="validation-page">
-            <div className="page">
-                <div className="shell">
+        <div className="validation-page simple">
+            <div className="page narrow">
+                <header className="validation-header">
+                    <div>
+                        <p className="eyebrow">Email Validation</p>
+                        <h1>Check deliverability before you hit send.</h1>
+                    </div>
+                    <p className="muted">
+                        Run a single lookup, paste a short list, upload a CSV/XLSX, or review stored results. Everything uses the same
+                        DNS + SMTP engine, so behaviour is consistent across tabs.
+                    </p>
+                </header>
+
+                <section className="simple-tab-layout">
                     <TabNavigation
                         activeTab={activeTab}
                         onTabChange={setActiveTab}
                         authUser={authUser}
                         onLogout={() => { }}
                     />
-                </div>
-
-                <div className="workspace">
-                    <div className="workspace-main">
-                        {renderTab()}
-                    </div>
-                </div>
+                    <div className="tab-panel">{renderTab()}</div>
+                </section>
             </div>
         </div>
     );

@@ -1,45 +1,46 @@
 import React from 'react';
 
-type Tab = 'single' | 'bulk' | 'upload' | 'admin';
+type TabKey = 'single' | 'bulk' | 'upload' | 'admin';
 
 interface TabNavigationProps {
-    activeTab: Tab;
-    onTabChange: (tab: Tab) => void;
+    activeTab: TabKey;
+    onTabChange: (tab: TabKey) => void;
     authUser: { username: string; role: string } | null;
     onLogout: () => void;
 }
 
-export const TabNavigation: React.FC<TabNavigationProps> = ({
-    activeTab,
-    onTabChange,
-    authUser,
-    onLogout,
-}) => {
-    const tabs: Array<[Tab, string]> = [
-        ['single', 'Validate'],
-        ['bulk', 'Bulk Paste'],
-        ['upload', 'Upload'],
-        ['admin', 'Admin'],
-    ];
+const TABS: Array<{ key: TabKey; label: string; requiresAdmin?: boolean }> = [
+    { key: 'single', label: 'Single' },
+    { key: 'bulk', label: 'Bulk' },
+    { key: 'upload', label: 'Upload' },
+    { key: 'admin', label: 'Admin', requiresAdmin: true },
+];
 
+export const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange, authUser, onLogout }) => {
     return (
-        <nav className="tabs">
-            {tabs.map(([key, label]) => (
-                <button
-                    key={key}
-                    className={`tab ${activeTab === key ? 'active' : ''}`}
-                    onClick={() => onTabChange(key)}
-                >
-                    {label}
-                </button>
-            ))}
+        <div className="simple-tabs">
+            <div className="tab-buttons">
+                {TABS.map((tab) => {
+                    const disabled = tab.requiresAdmin && authUser?.role !== 'admin';
+                    return (
+                        <button
+                            key={tab.key}
+                            type="button"
+                            className={`simple-tab ${activeTab === tab.key ? 'active' : ''}`}
+                            onClick={() => !disabled && onTabChange(tab.key)}
+                            disabled={disabled}
+                        >
+                            {tab.label}
+                        </button>
+                    );
+                })}
+            </div>
 
-            <div className="auth-chip">
+            {/* <div className="tab-user">
                 {authUser ? (
                     <>
                         <span>
-                            <strong>{authUser.username}</strong>
-                            <span className="role-badge">{authUser.role}</span>
+                            {authUser.username} <small>{authUser.role}</small>
                         </span>
                         <button className="btn ghost tiny-btn" onClick={onLogout}>
                             Logout
@@ -48,7 +49,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
                 ) : (
                     <span className="muted">Not signed in</span>
                 )}
-            </div>
-        </nav>
+            </div> */}
+        </div>
     );
 };

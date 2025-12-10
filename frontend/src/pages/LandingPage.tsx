@@ -1,7 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-export const LandingPage: React.FC = () => {
+interface LandingPageProps {
+    authUser?: { username: string; role: string } | null;
+}
+
+export const LandingPage: React.FC<LandingPageProps> = ({ authUser }) => {
     return (
         <div className="landing-page">
             <section className="landing-hero">
@@ -15,17 +19,30 @@ export const LandingPage: React.FC = () => {
                             Real-time DNS and SMTP verification. Reduce bounce rates, protect your sender reputation,
                             and ensure your emails reach real inboxes.
                         </p>
-                        <div className="hero-cta">
-                            <Link to="/signup" className="btn primary large">
-                                Get Started Free
-                            </Link>
-                            <Link to="/login" className="btn ghost large">
-                                Sign In
-                            </Link>
-                        </div>
-                        <p className="hero-note">
-                            No credit card required • Instant setup • Free tier available
-                        </p>
+                        {!authUser ? (
+                            <>
+                                <div className="hero-cta">
+                                    <Link to="/signup" className="btn primary large">
+                                        Get Started Free
+                                    </Link>
+                                    <Link to="/login" className="btn ghost large">
+                                        Sign In
+                                    </Link>
+                                </div>
+                                <p className="hero-note">
+                                    No credit card required • Instant setup • Free tier available
+                                </p>
+                            </>
+                        ) : (
+                            <div className="hero-cta">
+                                <Link to={authUser.role === 'admin' ? '/admin' : '/dashboard'} className="btn primary large">
+                                    Go to Dashboard
+                                </Link>
+                                <Link to="/validate" className="btn ghost large">
+                                    Start Validating
+                                </Link>
+                            </div>
+                        )}
                     </div>
 
                     <div className="hero-visual">
@@ -111,9 +128,15 @@ export const LandingPage: React.FC = () => {
                 <div className="cta-container">
                     <h2>Ready to improve your email deliverability?</h2>
                     <p>Join thousands of businesses using our validation platform</p>
-                    <Link to="/signup" className="btn primary large">
-                        Start Validating Now
-                    </Link>
+                    {!authUser ? (
+                        <Link to="/signup" className="btn primary large">
+                            Start Validating Now
+                        </Link>
+                    ) : (
+                        <Link to="/validate" className="btn primary large">
+                            Start Validating Now
+                        </Link>
+                    )}
                 </div>
             </section>
 

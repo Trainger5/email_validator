@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { login } from '../api';
 
 interface LoginPageProps {
-    onLogin: (user: { username: string; role: string }) => void;
+    onLogin: (user: { username: string; role: string; token?: string }) => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {

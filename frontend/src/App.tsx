@@ -3,8 +3,10 @@ import { me } from "./api";
 import { AppRouter } from "./Router";
 import "./styles.css";
 
+type AuthUser = { username: string; role: string };
+
 export default function App() {
-  const [authUser, setAuthUser] = useState<{ username: string; role: string } | null>(null);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
@@ -32,8 +34,11 @@ export default function App() {
     }
   }
 
-  const handleLogin = (user: { username: string; role: string }) => {
-    setAuthUser(user);
+  const handleLogin = (user: { username: string; role: string; token?: string }) => {
+    if (user.token) {
+      localStorage.setItem('token', user.token);
+    }
+    setAuthUser({ username: user.username, role: user.role });
   };
 
   const handleLogout = () => {
