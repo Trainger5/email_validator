@@ -122,7 +122,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ authUser }) => {
                             <span className="tiny">Total Verifications</span>
                             <i className="fas fa-layer-group"></i>
                         </div>
-                        <h2>{stats.total.toLocaleString()}</h2>
+                        <h2>{(stats.total ?? 0).toLocaleString()}</h2>
                         <span className="tiny">↑ 12% vs last week</span>
                     </div>
                     <div style={{ gridColumn: 'span 3' }} className="summary-card card-blue">
@@ -130,7 +130,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ authUser }) => {
                             <span className="tiny">Deliverability Rate</span>
                             <i className="fas fa-check-circle"></i>
                         </div>
-                        <h2>{stats.total > 0 ? Math.round((stats.deliverable / stats.total) * 100) : 0}%</h2>
+                        <h2>{stats.total > 0 ? Math.round(((stats.deliverable ?? 0) / stats.total) * 100) : 0}%</h2>
                         <span className="tiny">Industry avg: 85%</span>
                     </div>
                     <div style={{ gridColumn: 'span 3' }} className="summary-card card-green">
@@ -138,7 +138,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ authUser }) => {
                             <span className="tiny">Clean Emails</span>
                             <i className="fas fa-shield-alt"></i>
                         </div>
-                        <h2>{stats.deliverable.toLocaleString()}</h2>
+                        <h2>{(stats.deliverable ?? 0).toLocaleString()}</h2>
                         <span className="tiny">Ready for campaigns</span>
                     </div>
                     <div style={{ gridColumn: 'span 3' }} className="summary-card card-orange">
@@ -146,7 +146,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ authUser }) => {
                             <span className="tiny">Bounce Risk</span>
                             <i className="fas fa-exclamation-triangle"></i>
                         </div>
-                        <h2>{stats.bounce_likely.toLocaleString()}</h2>
+                        <h2>{(stats.bounce_likely ?? 0).toLocaleString()}</h2>
                         <span className="tiny">Require attention</span>
                     </div>
 
